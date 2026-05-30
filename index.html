@@ -3,195 +3,484 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>復興小區長青團契名牌系統</title>
+    <title>復興小區長青團契出訪查詢與名牌系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        @media print { 
-            .no-print { display: none; } 
-            /* A4 橫式約 29.7cm，寬 9cm * 3 = 27cm，留有邊距 */
-            .badge-container { 
-                page-break-inside: avoid; 
-                width: 9cm; 
-                height: 5.5cm; 
-                border: 1px solid #000; 
-                display: inline-block; 
-                margin: 0.2cm; 
-                vertical-align: top;
+        /* 螢幕顯示樣式 */
+        .badge-preview {
+            width: 9cm;
+            height: 5.5cm;
+            border: 2px solid #1e293b;
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 12px;
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        /* 列印專用樣式 */
+        @media print {
+            @page {
+                size: A4 landscape;
+                margin: 0.8cm 0.5cm;
+            }
+            body {
+                background: white;
+                padding: 0;
+                margin: 0;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .badges-print-container {
+                display: block !important;
+                width: 100%;
+            }
+            .badge-card {
+                width: 9cm !important;
+                height: 5.5cm !important;
+                border: 1px solid #000000 !important;
+                border-radius: 6px !important;
+                padding: 10px !important;
+                margin: 0.15cm !important;
+                display: inline-flex !important;
+                flex-direction: column !important;
+                justify-content: space-between !important;
+                box-shadow: none !important;
+                page-break-inside: avoid !important;
+                background: #ffffff !important;
+                vertical-align: top !important;
+            }
+            /* 強制每行剛好 3 張 */
+            .badge-grid {
+                display: grid !important;
+                grid-template-columns: repeat(3, 9cm) !important;
+                gap: 0.2cm !important;
+                justify-content: center !important;
             }
         }
-        .badge-container { 
-            width: 9cm; 
-            height: 5.5cm; 
-            border: 2px solid #333; 
-            margin: 8px; 
-            display: inline-block; 
-            vertical-align: top; 
-            border-radius: 8px; 
-            overflow: hidden; 
-            position: relative; 
-        }
-        .badge-front { width: 100%; height: 100%; padding: 10px; text-align: center; box-sizing: border-box; }
     </style>
 </head>
-<body class="bg-gray-100 p-5">
+<body class="bg-slate-50 min-h-screen text-slate-800 font-sans">
 
-<div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-    <h1 class="text-2xl font-bold mb-4 no-print">復興小區長青團契名牌產生器 (110人)</h1>
-    <input type="text" id="searchInput" placeholder="輸入姓名或教會搜尋..." class="w-full p-3 border rounded mb-4 no-print text-lg">
-    
-    <div id="results" class="no-print">
-        <p class="mb-2 font-bold text-gray-700">查詢結果：</p>
-        <div class="overflow-x-auto">
-            <table class="w-full border-collapse border border-gray-300 text-sm">
-                <thead><tr class="bg-gray-200"><th>ID.</th><th>教會</th><th>姓名</th><th>車</th><th>房</th><th>房型</th></tr></thead>
-                <tbody id="resultBody"></tbody>
-            </table>
+<!-- 控制面板 (僅螢幕顯示) -->
+<div class="max-w-6xl mx-auto p-4 sm:p-6 no-print">
+    <div class="bg-white rounded-2xl shadow-xl p-6 border border-slate-100">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+            <div>
+                <h1 class="text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                    <span class="text-blue-600">🚌</span> 復興小區長青團契出訪系統
+                </h1>
+                <p class="text-slate-500 text-sm mt-1">支援 109 人完整名牌管理、即時查詢及 A4 橫向列印（一行 3 張）</p>
+            </div>
+            
+            <div class="flex flex-wrap gap-2">
+                <!-- 手動 CSV 上傳，確保未來任何修改都可一秒匯入 -->
+                <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 border border-slate-200">
+                    📂 載入新名單 (CSV)
+                    <input type="file" id="csvFileInput" accept=".csv" class="hidden" onchange="handleFileSelect(event)">
+                </label>
+                <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-500/20 flex items-center gap-2">
+                    🖨️ 開始列印名牌 (A4 橫向)
+                </button>
+            </div>
+        </div>
+
+        <!-- 檔案載入狀態提示 -->
+        <div id="statusAlert" class="mb-6 p-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all">
+            <span id="statusIcon">🔄</span> <span id="statusText">正在初始化系統...</span>
+        </div>
+
+        <!-- 搜尋與過濾 -->
+        <div class="relative mb-6">
+            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">🔍</span>
+            <input type="text" id="searchInput" placeholder="請輸入姓名或所屬教會進行即時篩選..." class="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg transition-all">
+        </div>
+
+        <!-- 摺疊查詢列表 -->
+        <div class="border border-slate-100 rounded-xl overflow-hidden">
+            <div class="bg-slate-50 p-3 font-bold text-slate-700 text-sm border-b border-slate-100 flex justify-between items-center">
+                <span>📋 成員查詢清單</span>
+                <span id="listCount" class="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-xs">0 筆</span>
+            </div>
+            <div class="max-h-60 overflow-y-auto">
+                <table class="w-full text-left text-sm border-collapse">
+                    <thead class="bg-slate-100 text-slate-600 uppercase text-xs sticky top-0">
+                        <tr>
+                            <th class="p-3">ID.</th>
+                            <th class="p-3">所屬教會</th>
+                            <th class="p-3">姓名</th>
+                            <th class="p-3 text-center">車次</th>
+                            <th class="p-3">房號</th>
+                            <th class="p-3">房型</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-slate-100">
+                        <!-- 動態渲染 -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
+</div>
 
-    <hr class="my-8 no-print">
-    <button onclick="window.print()" class="no-print bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded text-xl font-bold shadow-lg">列印名牌 (橫式 A4)</button>
+<!-- 名牌列印與預覽區 -->
+<div class="max-w-6xl mx-auto px-4 sm:px-6 mb-12">
+    <h2 class="text-xl font-bold text-slate-800 mb-4 no-print flex items-center gap-2">
+        🏷️ 名牌實時預覽 <span class="text-sm font-normal text-slate-500">(列印時將自動轉為標準 A4 橫式排版)</span>
+    </h2>
     
-    <div id="badges" class="mt-8"></div>
+    <div id="badgeContainer" class="badge-grid flex flex-wrap gap-4 justify-center">
+        <!-- 名牌卡片將渲染在此 -->
+    </div>
 </div>
 
 <script>
-// 使用正確對齊後的 110 筆完整名單
-const rawData = [
-    {id: 1, church: "工作小組", name: "陳靜美", car: "1", room: "707", type: "(2人房)"},
-    {id: 2, church: "工作小組", name: "王鴻志", car: "1", room: "707", type: "(2人房)"},
-    {id: 3, church: "工作小組", name: "林茜葦", car: "1", room: "606", type: "(2人房)"},
-    {id: 4, church: "工作小組", name: "陳強偉", car: "1", room: "606", type: "(2人房)"},
-    {id: 5, church: "工作小組", name: "陳義道", car: "1", room: "317", type: "(2人房)"},
-    {id: 6, church: "工作小組", name: "陳念平", car: "1", room: "317", type: "(2人房)"},
-    {id: 7, church: "工作小組", name: "胡哲貞", car: "1", room: "503", type: "(4人房)"},
-    {id: 8, church: "工作小組", name: "鍾霖恩", car: "1", room: "503", type: "(4人房)"},
-    {id: 9, church: "工作小組", name: "鍾禾憫", car: "1", room: "503", type: "(4人房)"},
-    {id: 10, church: "工作小組", name: "鍾禾新", car: "1", room: "503", type: "(4人房)"},
-    {id: 11, church: "崎頂", name: "朱月淑", car: "1", room: "307", type: "(2人房)"},
-    {id: 12, church: "崎頂", name: "吳初惠", car: "1", room: "307", type: "(2人房)"},
-    {id: 13, church: "崎頂", name: "李美秀", car: "1", room: "309", type: "(2人房)"},
-    {id: 14, church: "崎頂", name: "蕭家通", car: "1", room: "309", type: "(2人房)"},
-    {id: 15, church: "崎頂", name: "胡若芯", car: "1", room: "311", type: "(2人房)"},
-    {id: 16, church: "崎頂", name: "林秋聖", car: "1", room: "311", type: "(2人房)"},
-    {id: 17, church: "崎頂", name: "許美玉", car: "1", room: "315", type: "(2人房)"},
-    {id: 18, church: "崎頂", name: "黃文樹", car: "1", room: "315", type: "(2人房)"},
-    {id: 19, church: "崎頂", name: "周愛子", car: "1", room: "716", type: "(3人房)"},
-    {id: 20, church: "崎頂", name: "李美蓉", car: "1", room: "716", type: "(3人房)"},
-    {id: 21, church: "崎頂", name: "呂陳玉", car: "1", room: "716", type: "(3人房)"},
-    {id: 22, church: "崎頂", name: "孫正吉", car: "1", room: "323", type: "(3人房)"},
-    {id: 23, church: "崎頂", name: "陳文發", car: "1", room: "323", type: "(3人房)"},
-    {id: 24, church: "大溪", name: "周小嬌", car: "1", room: "321", type: "(2人房)"},
-    {id: 25, church: "大溪", name: "周永發", car: "1", room: "321", type: "(2人房)"},
-    {id: 26, church: "大溪", name: "林美玉", car: "1", room: "325", type: "(2人房)"},
-    {id: 27, church: "大溪", name: "簡明仁", car: "1", room: "325", type: "(2人房)"},
-    {id: 28, church: "大溪", name: "黃秀鳳", car: "1", room: "327", type: "(2人房)"},
-    {id: 29, church: "大溪", name: "張順吉", car: "1", room: "327", type: "(2人房)"},
-    {id: 30, church: "大溪", name: "陳桂華", car: "1", room: "515", type: "(2人房)"},
-    {id: 31, church: "大溪", name: "胡素甜", car: "1", room: "515", type: "(2人房)"},
-    {id: 32, church: "大溪", name: "曾秀花", car: "1", room: "517", type: "(2人房)"},
-    {id: 33, church: "復興", name: "陳秀月", car: "1", room: "807", type: "(2人房)"},
-    {id: 34, church: "復興", name: "林玉馬", car: "1", room: "807", type: "(2人房)"},
-    {id: 35, church: "復興", name: "陳秀琴", car: "1", room: "513", type: "(2人房)"},
-    {id: 36, church: "復興", name: "李月花", car: "1", room: "513", type: "(2人房)"},
-    {id: 37, church: "復興", name: "羅良花", car: "1", room: "623", type: "(3人房)"},
-    {id: 38, church: "復興", name: "胡甄心", car: "1", room: "623", type: "(3人房)"},
-    {id: 39, church: "復興", name: "許桂玉", car: "1", room: "623", type: "(3人房)"},
-    {id: 40, church: "工作小組", name: "林美玉", car: "2", room: "809", type: "(2人房)"},
-    {id: 41, church: "工作小組", name: "李永生", car: "2", room: "809", type: "(2人房)"},
-    {id: 42, church: "工作小組", name: "許美蘭", car: "2", room: "705", type: "(2人房)"},
-    {id: 43, church: "工作小組", name: "李永賢", car: "2", room: "705", type: "(2人房)"},
-    {id: 44, church: "雪霧鬧", name: "張秀麗", car: "2", room: "515", type: "(2人房)"},
-    {id: 45, church: "雪霧鬧", name: "卓村榮", car: "2", room: "515", type: "(2人房)"},
-    {id: 46, church: "雪霧鬧", name: "卓愾然", car: "2", room: "519", type: "(2人房)"},
-    {id: 47, church: "雪霧鬧", name: "楊李花", car: "2", room: "519", type: "(2人房)"},
-    {id: 48, church: "雪霧鬧", name: "卓宗成", car: "2", room: "517", type: "(2人房)"},
-    {id: 49, church: "雪霧鬧", name: "黃珍秀", car: "2", room: "517", type: "(2人房)"},
-    {id: 50, church: "雪霧鬧", name: "卓張玉霞", car: "2", room: "603", type: "(4人房)"},
-    {id: 51, church: "雪霧鬧", name: "陳許阿環", car: "2", room: "603", type: "(4人房)"},
-    {id: 52, church: "雪霧鬧", name: "李美雲", car: "2", room: "603", type: "(4人房)"},
-    {id: 53, church: "雪霧鬧", name: "黃珍英", car: "2", room: "603", type: "(4人房)"},
-    {id: 54, church: "義盛", name: "呂底亞", car: "2", room: "507", type: "(2人房)"},
-    {id: 55, church: "義盛", name: "簡保國", car: "2", room: "507", type: "(2人房)"},
-    {id: 56, church: "義盛", name: "楊張鳳英", car: "2", room: "509", type: "(2人房)"},
-    {id: 57, church: "義盛", name: "呂阿梅", car: "2", room: "509", type: "(2人房)"},
-    {id: 58, church: "義盛", name: "呂梅蘭", car: "2", room: "511", type: "(2人房)"},
-    {id: 59, church: "義盛", name: "胡正貴", car: "2", room: "511", type: "(2人房)"},
-    {id: 60, church: "義盛", name: "彭胡冬妹", car: "2", room: "613", type: "(2人房)"},
-    {id: 61, church: "義盛", name: "彭金昌", car: "2", room: "613", type: "(2人房)"},
-    {id: 62, church: "義盛", name: "彭慧蓮", car: "2", room: "615", type: "(2人房)"},
-    {id: 63, church: "義盛", name: "田文明", car: "2", room: "615", type: "(2人房)"},
-    {id: 64, church: "大灣", name: "吳梅玉", car: "2", room: "505", type: "(2人房)"},
-    {id: 65, church: "大灣", name: "林高玉美", car: "2", room: "505", type: "(2人房)"},
-    {id: 66, church: "大灣", name: "羅香美", car: "2", room: "609", type: "(2人房)"},
-    {id: 67, church: "大灣", name: "李多馬", car: "2", room: "609", type: "(2人房)"},
-    {id: 68, church: "大灣", name: "吳月美", car: "2", room: "619", type: "(2人房)"},
-    {id: 69, church: "大灣", name: "黃成和", car: "2", room: "619", type: "(2人房)"},
-    {id: 70, church: "大灣", name: "羅香芬", car: "2", room: "715", type: "(2人房)"},
-    {id: 71, church: "大灣", name: "羅香芬", car: "2", room: "715", type: "(2人房)"},
-    {id: 72, church: "大灣", name: "李文貴", car: "2", room: "715", type: "(2人房)"},
-    {id: 73, church: "工作小組", name: "胡燕琳", car: "3", room: "709", type: "(2人房)"},
-    {id: 74, church: "工作小組", name: "卓建新", car: "3", room: "709", type: "(2人房)"},
-    {id: 75, church: "工作小組", name: "楊慧珠", car: "3", room: "607", type: "(2人房)"},
-    {id: 76, church: "工作小組", name: "張勇光", car: "3", room: "607", type: "(2人房)"},
-    {id: 77, church: "工作小組", name: "楊慧玲", car: "3", room: "319", type: "(2人房)"},
-    {id: 78, church: "工作小組", name: "姜忠良", car: "3", room: "319", type: "(2人房)"},
-    {id: 79, church: "工作小組", name: "鍾素美", car: "3", room: "513", type: "(2人房)"},
-    {id: 80, church: "工作小組", name: "邱春妹", car: "3", room: "513", type: "(2人房)"},
-    {id: 81, church: "工作小組", name: "林麗雲", car: "3", room: "517", type: "(2人房)"},
-    {id: 82, church: "工作小組", name: "卓秀珍", car: "3", room: "517", type: "(2人房)"},
-    {id: 83, church: "上巴陵", name: "陳木村", car: "3", room: "813", type: "(2人房)"},
-    {id: 84, church: "上巴陵", name: "李美雲", car: "3", room: "813", type: "(2人房)"},
-    {id: 85, church: "上巴陵", name: "劉愛救", car: "3", room: "815", type: "(2人房)"},
-    {id: 86, church: "上巴陵", name: "黃正勇", car: "3", room: "815", type: "(2人房)"},
-    {id: 87, church: "中巴陵", name: "林小妹", car: "3", room: "805", type: "(2人房)"},
-    {id: 88, church: "中巴陵", name: "杜文義", car: "3", room: "805", type: "(2人房)"},
-    {id: 89, church: "中巴陵", name: "曾謙智", car: "3", room: "719", type: "(3人房)"},
-    {id: 90, church: "中巴陵", name: "胡光明", car: "3", room: "719", type: "(3人房)"},
-    {id: 91, church: "羅浮", name: "黃進興", car: "3", room: "605", type: "(2人房)"},
-    {id: 92, church: "羅浮", name: "黃陳春妹", car: "3", room: "605", type: "(2人房)"},
-    {id: 93, church: "羅浮", name: "張秀蓮", car: "3", room: "609", type: "(2人房)"},
-    {id: 94, church: "羅浮", name: "張秀珠", car: "3", room: "609", type: "(2人房)"},
-    {id: 95, church: "高坡", name: "林桂花", car: "3", room: "611", type: "(2人房)"},
-    {id: 96, church: "高坡", name: "林秀琴", car: "3", room: "611", type: "(2人房)"},
-    {id: 97, church: "溪口", name: "陳寶華", car: "3", room: "615", type: "(2人房)"},
-    {id: 98, church: "溪口", name: "林秀英", car: "3", room: "615", type: "(2人房)"},
-    {id: 99, church: "溪口", name: "陳秋玉", car: "3", room: "617", type: "(2人房)"},
-    {id: 100, church: "溪口", name: "張月嬌", car: "3", room: "617", type: "(2人房)"},
-    {id: 101, church: "下巴陵", name: "黃榮華", car: "3", room: "515", type: "(2人房)"},
-    {id: 102, church: "下巴陵", name: "陳秀英", car: "3", room: "515", type: "(2人房)"},
-    {id: 103, church: "下巴陵", name: "陳秀蘭", car: "3", room: "517", type: "(2人房)"},
-    {id: 104, church: "下巴陵", name: "陳秀珍", car: "3", room: "517", type: "(2人房)"},
-    {id: 105, church: "巴陵", name: "張秀玉", car: "3", room: "505", type: "(2人房)"},
-    {id: 106, church: "巴陵", name: "林月梅", car: "3", room: "505", type: "(2人房)"},
-    {id: 107, church: "巴陵", name: "陳秋霞", car: "3", room: "507", type: "(2人房)"},
-    {id: 108, church: "巴陵", name: "陳秀英", car: "3", room: "507", type: "(2人房)"},
-    {id: 109, church: "加拉", name: "陳月華", car: "3", room: "509", type: "(2人房)"},
-    {id: 110, church: "加拉", name: "林美蓮", car: "3", room: "509", type: "(2人房)"}
+// 109 人原始對齊資料 (作為自動讀取失敗時的強大備份)
+const fallbackData = [
+    {id: 1, church: "工作小組", name: "陳靜美", car: "1", room: "707", type: "2人房"},
+    {id: 2, church: "工作小組", name: "王鴻志", car: "1", room: "707", type: "2人房"},
+    {id: 3, church: "工作小組", name: "林茜葦", car: "1", room: "606", type: "2人房"},
+    {id: 4, church: "工作小組", name: "陳強偉", car: "1", room: "606", type: "2人房"},
+    {id: 5, church: "工作小組", name: "陳義道", car: "1", room: "317", type: "2人房"},
+    {id: 6, church: "工作小組", name: "陳念平", car: "1", room: "317", type: "2人房"},
+    {id: 7, church: "工作小組", name: "胡哲貞", car: "1", room: "503", type: "4人房"},
+    {id: 8, church: "工作小組", name: "鍾霖恩", car: "1", room: "503", type: "4人房"},
+    {id: 9, church: "工作小組", name: "鍾禾憫", car: "1", room: "503", type: "4人房"},
+    {id: 10, church: "工作小組", name: "鍾禾新", car: "1", room: "503", type: "4人房"},
+    {id: 11, church: "崎頂", name: "朱月淑", car: "1", room: "307", type: "2人房"},
+    {id: 12, church: "崎頂", name: "吳初惠", car: "1", room: "307", type: "2人房"},
+    {id: 13, church: "崎頂", name: "李美秀", car: "1", room: "309", type: "2人房"},
+    {id: 14, church: "崎頂", name: "蕭家通", car: "1", room: "309", type: "2人房"},
+    {id: 15, church: "崎頂", name: "胡若芯", car: "1", room: "311", type: "2人房"},
+    {id: 16, church: "崎頂", name: "林秋聖", car: "1", room: "311", type: "2人房"},
+    {id: 17, church: "崎頂", name: "許美玉", car: "1", room: "315", type: "2人房"},
+    {id: 18, church: "崎頂", name: "黃文樹", car: "1", room: "315", type: "2人房"},
+    {id: 19, church: "崎頂", name: "周愛子", car: "1", room: "716", type: "3人房"},
+    {id: 20, church: "崎頂", name: "李美蓉", car: "1", room: "716", type: "3人房"},
+    {id: 21, church: "崎頂", name: "呂陳玉", car: "1", room: "716", type: "3人房"},
+    {id: 22, church: "崎頂", name: "孫正吉", car: "1", room: "323", type: "3人房"},
+    {id: 23, church: "崎頂", name: "陳文發", car: "1", room: "323", type: "3人房"},
+    {id: 24, church: "大溪", name: "周小嬌", car: "1", room: "321", type: "2人房"},
+    {id: 25, church: "大溪", name: "周永發", car: "1", room: "321", type: "2人房"},
+    {id: 26, church: "大溪", name: "林美玉", car: "1", room: "325", type: "2人房"},
+    {id: 27, church: "大溪", name: "簡明仁", car: "1", room: "325", type: "2人房"},
+    {id: 28, church: "大溪", name: "黃秀鳳", car: "1", room: "327", type: "2人房"},
+    {id: 29, church: "大溪", name: "張順吉", car: "1", room: "327", type: "2人房"},
+    {id: 30, church: "大溪", name: "陳桂華", car: "1", room: "515", type: "2人房"},
+    {id: 31, church: "大溪", name: "胡素甜", car: "1", room: "515", type: "2人房"},
+    {id: 32, church: "大溪", name: "曾秀花", car: "1", room: "517", type: "2人房"},
+    {id: 33, church: "復興", name: "陳秀月", car: "1", room: "807", type: "2人房"},
+    {id: 34, church: "復興", name: "林玉馬", car: "1", room: "807", type: "2人房"},
+    {id: 35, church: "復興", name: "陳秀琴", car: "1", room: "513", type: "2人房"},
+    {id: 36, church: "復興", name: "李月花", car: "1", room: "513", type: "2人房"},
+    {id: 37, church: "復興", name: "羅良花", car: "1", room: "623", type: "3人房"},
+    {id: 38, church: "復興", name: "胡甄心", car: "1", room: "623", type: "3人房"},
+    {id: 39, church: "復興", name: "許桂玉", car: "1", room: "623", type: "3人房"},
+    {id: 40, church: "工作小組", name: "林美玉", car: "2", room: "809", type: "2人房"},
+    {id: 41, church: "工作小組", name: "李永生", car: "2", room: "809", type: "2人房"},
+    {id: 42, church: "工作小組", name: "許美蘭", car: "2", room: "705", type: "2人房"},
+    {id: 43, church: "工作小組", name: "李永賢", car: "2", room: "705", type: "2人房"},
+    {id: 44, church: "雪霧鬧", name: "張秀麗", car: "2", room: "515", type: "2人房"},
+    {id: 45, church: "雪霧鬧", name: "卓村榮", car: "2", room: "515", type: "2人房"},
+    {id: 46, church: "雪霧鬧", name: "卓愾然", car: "2", room: "519", type: "2人房"},
+    {id: 47, church: "雪霧鬧", name: "楊李花", car: "2", room: "519", type: "2人房"},
+    {id: 48, church: "雪霧鬧", name: "卓宗成", car: "2", room: "517", type: "2人房"},
+    {id: 49, church: "雪霧鬧", name: "黃珍秀", car: "2", room: "517", type: "2人房"},
+    {id: 50, church: "雪霧鬧", name: "卓張玉霞", car: "2", room: "603", type: "4人房"},
+    {id: 51, church: "雪霧鬧", name: "陳許阿環", car: "2", room: "603", type: "4人房"},
+    {id: 52, church: "雪霧鬧", name: "李美雲", car: "2", room: "603", type: "4人房"},
+    {id: 53, church: "雪霧鬧", name: "黃珍英", car: "2", room: "603", type: "4人房"},
+    {id: 54, church: "義盛", name: "呂底亞", car: "2", room: "507", type: "2人房"},
+    {id: 55, church: "義盛", name: "簡保國", car: "2", room: "507", type: "2人房"},
+    {id: 56, church: "義盛", name: "楊張鳳英", car: "2", room: "509", type: "2人房"},
+    {id: 57, church: "義盛", name: "呂阿梅", car: "2", room: "509", type: "2人房"},
+    {id: 58, church: "義盛", name: "呂梅蘭", car: "2", room: "511", type: "2人房"},
+    {id: 59, church: "義盛", name: "胡正貴", car: "2", room: "511", type: "2人房"},
+    {id: 60, church: "義盛", name: "彭胡冬妹", car: "2", room: "613", type: "2人房"},
+    {id: 61, church: "義盛", name: "彭金昌", car: "2", room: "613", type: "2人房"},
+    {id: 62, church: "義盛", name: "彭慧蓮", car: "2", room: "615", type: "2人房"},
+    {id: 63, church: "義盛", name: "田文明", car: "2", room: "615", type: "2人房"},
+    {id: 64, church: "大灣", name: "吳梅玉", car: "2", room: "505", type: "2人房"},
+    {id: 65, church: "大灣", name: "林高玉美", car: "2", room: "505", type: "2人房"},
+    {id: 66, church: "大灣", name: "羅香美", car: "2", room: "609", type: "2人房"},
+    {id: 67, church: "大灣", name: "李多馬", car: "2", room: "609", type: "2人房"},
+    {id: 68, church: "大灣", name: "吳月美", car: "2", room: "619", type: "2人房"},
+    {id: 69, church: "大灣", name: "黃成和", car: "2", room: "619", type: "2人房"},
+    {id: 70, church: "大灣", name: "羅香芬", car: "2", room: "715", type: "2人房"},
+    {id: 71, church: "大灣", name: "羅香蘭", car: "2", room: "715", type: "2人房"},
+    {id: 72, church: "大灣", name: "李秀英", car: "2", room: "617", type: "2人房"},
+    {id: 73, church: "大灣", name: "游天送", car: "2", room: "617", type: "2人房"},
+    {id: 74, church: "復興", name: "張勝發", car: "2", room: "521", type: "2人房"},
+    {id: 75, church: "復興", name: "姚紫梅", car: "2", room: "521", type: "2人房"},
+    {id: 76, church: "復興", name: "林石勇", car: "2", room: "713", type: "2人房"},
+    {id: 77, church: "工作小組", name: "胡燕琳", car: "3", room: "709", type: "2人房"},
+    {id: 78, church: "工作小組", name: "卓建新", car: "3", room: "709", type: "2人房"},
+    {id: 79, church: "工作小組", name: "楊慧珠", car: "3", room: "607", type: "2人房"},
+    {id: 80, church: "工作小組", name: "張勇光", car: "3", room: "607", type: "2人房"},
+    {id: 81, church: "工作小組", name: "楊慧玲", car: "3", room: "319", type: "2人房"},
+    {id: 82, church: "工作小組", name: "姜忠良", car: "3", room: "319", type: "2人房"},
+    {id: 83, church: "上巴陵", name: "胡小芬", car: "3", room: "717", type: "2人房"},
+    {id: 84, church: "上巴陵", name: "簡清松", car: "3", room: "717", type: "2人房"},
+    {id: 85, church: "上巴陵", name: "陳秀花", car: "3", room: "602", type: "3人房"},
+    {id: 86, church: "上巴陵", name: "陳秀鳳", car: "3", room: "602", type: "3人房"},
+    {id: 87, church: "上巴陵", name: "陳賴玉錦", car: "3", room: "711", type: "3人房"},
+    {id: 88, church: "上巴陵", name: "李素珍", car: "3", room: "711", type: "3人房"},
+    {id: 89, church: "上巴陵", name: "陳賴玉嬌", car: "3", room: "711", type: "3人房"},
+    {id: 90, church: "上巴陵", name: "陳木村", car: "3", room: "813", type: "2人房"},
+    {id: 91, church: "上巴陵", name: "李美雲", car: "3", room: "813", type: "2人房"},
+    {id: 92, church: "上巴陵", name: "劉愛救", car: "3", room: "815", type: "2人房"},
+    {id: 93, church: "上巴陵", name: "黃正勇", car: "3", room: "815", type: "2人房"},
+    {id: 94, church: "中巴陵", name: "林小妹", car: "3", room: "805", type: "2人房"},
+    {id: 95, church: "中巴陵", name: "杜文義", car: "3", room: "805", type: "2人房"},
+    {id: 96, church: "中巴陵", name: "曾謙智", car: "3", room: "719", type: "3人房"},
+    {id: 97, church: "中巴陵", name: "胡光明", car: "3", room: "719", type: "3人房"},
+    {id: 98, church: "羅浮", name: "黃進興", car: "3", room: "605", type: "2人房"},
+    {id: 99, church: "羅浮", name: "黃陳春妹", car: "3", room: "605", type: "2人房"},
+    {id: 100, church: "羅浮", name: "張秀蓮", car: "3", room: "609", type: "2人房"},
+    {id: 101, church: "羅浮", name: "張秀珠", car: "3", room: "609", type: "2人房"},
+    {id: 102, church: "高坡", name: "林桂花", car: "3", room: "611", type: "2人房"},
+    {id: 103, church: "高坡", name: "林秀琴", car: "3", room: "611", type: "2人房"},
+    {id: 104, church: "溪口", name: "陳寶華", car: "3", room: "615", type: "2人房"},
+    {id: 105, church: "溪口", name: "林秀英", car: "3", room: "615", type: "2人房"},
+    {id: 106, church: "溪口", name: "陳秋玉", car: "3", room: "617", type: "2人房"},
+    {id: 107, church: "溪口", name: "張月嬌", car: "3", room: "617", type: "2人房"},
+    {id: 108, church: "下巴陵", name: "黃榮華", car: "3", room: "515", type: "2人房"},
+    {id: 109, church: "下巴陵", name: "陳秀英", car: "3", room: "515", type: "2人房"}
 ];
 
-const searchInput = document.getElementById('searchInput');
-const resultBody = document.getElementById('resultBody');
-const badges = document.getElementById('badges');
+let activeData = [...fallbackData];
 
-function render(filter = '') {
-    const filtered = rawData.filter(r => r.name.includes(filter) || r.church.includes(filter));
-    resultBody.innerHTML = filtered.map(r => `<tr><td class="border p-2">${r.id}.</td><td class="border p-2">${r.church}</td><td class="border p-2 font-bold">${r.name}</td><td class="border p-2">${r.car}</td><td class="border p-2">${r.room}</td><td class="border p-2">${r.type}</td></tr>`).join('');
-    badges.innerHTML = filtered.map(r => `
-        <div class="badge-container">
-            <div class="badge-front flex flex-col justify-center">
-                <div class="text-[9px] text-gray-500 uppercase tracking-widest">復興小區長青團契</div>
-                <div class="text-xs font-bold my-1">${r.church}</div>
-                <h2 class="text-2xl font-black">${r.name}</h2>
-                <div class="text-xs font-bold mt-1">房號：${r.room} ${r.type}</div>
-                <div class="text-[10px] mt-2">ID: ${r.id} | 車次：第 ${r.car} 車</div>
+// 標準的 RFC-4180 CSV 解析器，完美處理換行、雙引號與空列
+function parseCSV(text) {
+    let q = false, row = [''], r = [];
+    for (let i = 0; i < text.length; i++) {
+        let c = text[i], next = text[i+1];
+        if (c === '"') {
+            if (q && next === '"') { row[row.length - 1] += '"'; i++; }
+            else { q = !q; }
+        } else if (c === ',' && !q) {
+            row.push('');
+        } else if ((c === '\r' || c === '\n') && !q) {
+            if (c === '\r' && next === '\n') { i++; }
+            r.push(row);
+            row = [''];
+        } else {
+            row[row.length - 1] += c;
+        }
+    }
+    if (row.length > 1 || row[0] !== '') r.push(row);
+    return r;
+}
+
+// 統一處理解析後的 CSV 矩陣
+function processCSV(matrix, sourceName) {
+    if (!matrix || matrix.length < 2) return false;
+    
+    // 尋找包含關鍵欄位的標題行
+    let headerRowIdx = -1;
+    for (let i = 0; i < Math.min(10, matrix.length); i++) {
+        if (matrix[i].some(cell => cell.includes("姓名") || cell.includes("教會"))) {
+            headerRowIdx = i;
+            break;
+        }
+    }
+    
+    if (headerRowIdx === -1) headerRowIdx = 0; // 預設第一行為標題
+
+    const headers = matrix[headerRowIdx].map(h => h.trim());
+    
+    // 定義各欄位的索引
+    const idIdx = headers.findIndex(h => h.includes("ID") || h.includes("項次") || h.includes("項"));
+    const churchIdx = headers.findIndex(h => h.includes("教會") || h.includes("所屬"));
+    const nameIdx = headers.findIndex(h => h.includes("姓名") || h.includes("名"));
+    const carIdx = headers.findIndex(h => h.includes("車"));
+    const roomIdx = headers.findIndex(h => h.includes("房號") || h.includes("房") && !h.includes("型"));
+    const typeIdx = headers.findIndex(h => h.includes("房型"));
+
+    const parsedList = [];
+    
+    for (let i = headerRowIdx + 1; i < matrix.length; i++) {
+        const row = matrix[i];
+        if (row.length <= 1) continue;
+        
+        const name = nameIdx !== -1 ? row[nameIdx]?.trim() : row[2]?.trim();
+        if (!name || name === "" || name === "姓名") continue; // 跳過無效行
+
+        const rawId = idIdx !== -1 ? row[idIdx]?.trim() : row[0]?.trim();
+        const cleanId = parseInt(rawId?.replace(/\D/g, ''), 10) || rawId || (parsedList.length + 1);
+        
+        const rawChurch = churchIdx !== -1 ? row[churchIdx] : row[1];
+        const church = rawChurch?.replace(/[\r\n]+/g, '').trim() || "";
+        
+        const rawCar = carIdx !== -1 ? row[carIdx] : row[3];
+        const car = rawCar?.trim() || "";
+        
+        const rawRoom = roomIdx !== -1 ? row[roomIdx] : row[4];
+        const room = rawRoom?.trim() || "";
+        
+        const rawType = typeIdx !== -1 ? row[typeIdx] : row[5];
+        const type = rawType?.replace(/[\r\n]+/g, '').trim() || "";
+
+        parsedList.push({
+            id: cleanId,
+            church: church,
+            name: name,
+            car: car,
+            room: room,
+            type: type
+        });
+    }
+
+    if (parsedList.length > 0) {
+        // 依照 ID 排列
+        parsedList.sort((a, b) => {
+            const numA = parseInt(a.id, 10);
+            const numB = parseInt(b.id, 10);
+            if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
+            return String(a.id).localeCompare(String(b.id));
+        });
+        
+        activeData = parsedList;
+        renderData();
+        updateStatus(`🟢 成功讀取「${sourceName}」共 ${activeData.length} 筆資料！系統已就緒。`, "success");
+        return true;
+    }
+    return false;
+}
+
+// 手動選擇檔案處理
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    updateStatus(`🔄 正在處理上傳檔案...`, "info");
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const matrix = parseCSV(e.target.result);
+        if (!processCSV(matrix, file.name)) {
+            updateStatus(`❌ 讀取失敗。請確保上傳的是正確的長青出訪 Excel 轉出之 CSV。`, "error");
+        }
+    };
+    reader.onerror = function() {
+        updateStatus(`❌ 檔案讀取中斷。`, "error");
+    };
+    reader.readAsText(file);
+}
+
+// 狀態更新列樣式切換
+function updateStatus(text, type) {
+    const bar = document.getElementById("statusAlert");
+    const icon = document.getElementById("statusIcon");
+    const label = document.getElementById("statusText");
+    
+    label.innerText = text;
+    bar.className = "mb-6 p-3 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ";
+    
+    if (type === "success") {
+        bar.classList.add("bg-emerald-50", "text-emerald-800", "border", "border-emerald-200");
+        icon.innerText = "🟢";
+    } else if (type === "warning") {
+        bar.classList.add("bg-amber-50", "text-amber-800", "border", "border-amber-200");
+        icon.innerText = "🟡";
+    } else if (type === "info") {
+        bar.classList.add("bg-blue-50", "text-blue-800", "border", "border-blue-200");
+        icon.innerText = "🔄";
+    } else {
+        bar.classList.add("bg-rose-50", "text-rose-800", "border", "border-rose-200");
+        icon.innerText = "🔴";
+    }
+}
+
+// 實時搜索過濾與渲染
+function renderData() {
+    const query = document.getElementById("searchInput").value.trim().toLowerCase();
+    const filtered = activeData.filter(item => 
+        item.name.toLowerCase().includes(query) || 
+        item.church.toLowerCase().includes(query) || 
+        item.room.toLowerCase().includes(query) ||
+        String(item.id).includes(query)
+    );
+
+    // 1. 渲染表格
+    const tableBody = document.getElementById("tableBody");
+    tableBody.innerHTML = filtered.map(item => `
+        <tr class="hover:bg-slate-50 transition-colors">
+            <td class="p-3 font-semibold text-slate-500">ID. ${item.id}</td>
+            <td class="p-3">${item.church}</td>
+            <td class="p-3 font-bold text-slate-900">${item.name}</td>
+            <td class="p-3 text-center"><span class="px-2 py-1 bg-slate-100 rounded-md font-medium">第 ${item.car} 車</span></td>
+            <td class="p-3 font-mono">${item.room || '—'}</td>
+            <td class="p-3 text-slate-500 text-xs">${item.type || '—'}</td>
+        </tr>
+    `).join('');
+
+    // 2. 渲染名牌
+    const badgeContainer = document.getElementById("badgeContainer");
+    badgeContainer.innerHTML = filtered.map(item => `
+        <div class="badge-card badge-preview">
+            <!-- 標題 -->
+            <div class="border-b border-dashed border-slate-200 pb-1.5">
+                <div class="text-[9px] font-black text-blue-700 tracking-wider text-center">
+                    復興小區長青團契花蓮訪問二日遊
+                </div>
+            </div>
+            
+            <!-- 所屬教會與姓名 -->
+            <div class="text-center my-auto py-1">
+                <div class="text-xs text-slate-600 font-bold tracking-wide">${item.church}</div>
+                <h2 class="text-[28px] font-black text-slate-900 leading-tight mt-1 tracking-wider">${item.name}</h2>
+            </div>
+            
+            <!-- 底部車號房號資訊 -->
+            <div class="bg-slate-50 rounded-md p-1.5 border border-slate-100 flex justify-between items-center text-xs">
+                <span class="font-bold text-slate-700">第 <span class="text-blue-600 font-black text-sm">${item.car}</span> 車</span>
+                <span class="font-bold text-slate-700">房號：<span class="font-mono text-sm">${item.room || '待定'}</span> <span class="text-[9px] text-slate-500">${item.type}</span></span>
+                <span class="text-[9px] text-slate-400 font-mono">ID.${item.id}</span>
             </div>
         </div>
     `).join('');
+
+    document.getElementById("listCount").innerText = `${filtered.length} 筆`;
 }
 
-searchInput.addEventListener('input', (e) => render(e.target.value));
-render();
+// 網頁啟動時，自動探索後台與前端的 CSV 檔案 (非同步智慧加載)
+async function tryAutoLoadFiles() {
+    updateStatus("正在檢查資料一致性...", "info");
+    const candidates = [
+        "復興小區長青團契出訪車號房號房型.xlsx - 復興小區長青團契出訪車號房號房型.csv",
+        "復興小區長青團契出訪車號房號房型.csv",
+        "活頁簿2.xlsx - 工作表1.csv"
+    ];
+
+    for (const filename of candidates) {
+        try {
+            const response = await fetch(encodeURIComponent(filename));
+            if (response.ok) {
+                const text = await response.text();
+                if (processCSV(parseCSV(text), filename)) {
+                    return; // 載入成功後立即中斷探索
+                }
+            }
+        } catch (e) {
+            console.warn(`暫無法自動讀取 ${filename}，嘗試備用方案。`);
+        }
+    }
+    
+    // 如果環境完全不支援 fetch，直接執行內建經清洗後的109位完整備份資料，保證不中斷運作
+    activeData = [...fallbackData];
+    renderData();
+    updateStatus("🟢 已啟用備份對齊名單 (109人)。您也可以手動上傳您的 CSV 檔案同步更新！", "success");
+}
+
+document.getElementById("searchInput").addEventListener("input", renderData);
+
+// 頁面初始化
+window.onload = function() {
+    tryAutoLoadFiles();
+};
 </script>
 </body>
 </html>
