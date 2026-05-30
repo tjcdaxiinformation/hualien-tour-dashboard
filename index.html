@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>人員資料查詢與名牌系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @media print { 
+            .no-print { display: none; } 
+            .badge-container { page-break-inside: avoid; margin-bottom: 20px; }
+            body { padding: 0; }
+        }
+        .badge-container { width: 9cm; height: 5.5cm; border: 2px solid #333; margin: 8px; display: inline-block; vertical-align: top; border-radius: 8px; overflow: hidden; position: relative; }
+        .badge-front, .badge-back { width: 100%; height: 100%; padding: 10px; text-align: center; box-sizing: border-box; }
+        .badge-back { background-color: #f3f4f6; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 0.9rem; border-top: 1px dashed #999; }
+    </style>
+</head>
+<body class="bg-gray-100 p-5">
+
+<div class="max-w-5xl mx-auto bg-white p-6 rounded-lg shadow-lg">
+    <h1 class="text-2xl font-bold mb-4 no-print">人員資料查詢與名牌系統</h1>
+    <input type="text" id="searchInput" placeholder="搜尋姓名..." class="w-full p-3 border rounded mb-4 no-print text-lg">
+    
+    <div id="results" class="overflow-x-auto no-print">
+        <table class="w-full border-collapse border border-gray-300">
+            <thead><tr class="bg-gray-200"><th>姓名</th><th>車號</th><th>房號</th><th>房型</th></tr></thead>
+            <tbody id="resultBody"></tbody>
+        </table>
+    </div>
+
+    <hr class="my-8 no-print">
+    <button onclick="window.print()" class="no-print bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded text-lg font-bold">列印全部名牌</button>
+    
+    <div id="badges" class="mt-8"></div>
+</div>
+
+<script>
+const rawData = [
+    {name: "陳靜美", car: "1", room: "707", type: "(2人房)"}, {name: "王鴻志", car: "1", room: "707", type: "(2人房)"},
+    {name: "林茜葦", car: "1", room: "606", type: "(2人房)"}, {name: "陳強偉", car: "1", room: "606", type: "(2人房)"},
+    {name: "陳義道", car: "1", room: "317", type: "(2人房)"}, {name: "陳念平", car: "1", room: "317", type: "(2人房)"},
+    {name: "胡哲貞", car: "1", room: "503", type: "(4人房)"}, {name: "鍾霖恩", car: "1", room: "503", type: "(4人房)"},
+    {name: "鍾禾憫", car: "1", room: "503", type: "(4人房)"}, {name: "鍾禾新", car: "1", room: "503", type: "(4人房)"},
+    {name: "朱月淑", car: "1", room: "307", type: "(2人房)"}, {name: "吳初惠", car: "1", room: "307", type: "(2人房)"},
+    {name: "李美秀", car: "1", room: "309", type: "(2人房)"}, {name: "蕭家通", car: "1", room: "309", type: "(2人房)"},
+    {name: "胡若芯", car: "1", room: "311", type: "(2人房)"}, {name: "林秋聖", car: "1", room: "311", type: "(2人房)"},
+    {name: "呂底亞", car: "2", room: "507", type: "(2人房)"}, {name: "簡保國", car: "2", room: "507", type: "(2人房)"},
+    {name: "楊張鳳英", car: "2", room: "509", type: "(2人房)"}, {name: "呂阿梅", car: "2", room: "509", type: "(2人房)"},
+    {name: "呂梅蘭", car: "2", room: "511", type: "(2人房)"}, {name: "胡正貴", car: "2", room: "511", type: "(2人房)"},
+    {name: "彭胡冬妹", car: "2", room: "613", type: "(2人房)"}, {name: "彭金昌", car: "2", room: "613", type: "(2人房)"},
+    {name: "彭慧蓮", car: "2", room: "615", type: "(2人房)"}, {name: "田文明", car: "2", room: "615", type: "(2人房)"}
+];
+
+const searchInput = document.getElementById('searchInput');
+const resultBody = document.getElementById('resultBody');
+const badges = document.getElementById('badges');
+
+function render(filter = '') {
+    const filtered = rawData.filter(r => r.name.includes(filter));
+    resultBody.innerHTML = filtered.map(r => `<tr><td class="p-2 border">${r.name}</td><td class="p-2 border">${r.car}</td><td class="p-2 border">${r.room}</td><td class="p-2 border">${r.type}</td></tr>`).join('');
+    badges.innerHTML = filtered.map(r => `
+        <div class="badge-container">
+            <div class="badge-front">
+                <div class="text-[10px] font-bold text-gray-600">復興小區長青團契花蓮訪問二日遊</div>
+                <h2 class="text-2xl font-bold mt-1">${r.name}</h2>
+                <div class="mt-2 text-sm">房號：${r.room} ${r.type}</div>
+                <div class="text-sm">車號：${r.car} 車</div>
+            </div>
+            <div class="badge-back">
+                
+            </div>
+        </div>
+    `).join('');
+}
+
+searchInput.addEventListener('input', (e) => render(e.target.value));
+render();
+</script>
+</body>
+</html>
