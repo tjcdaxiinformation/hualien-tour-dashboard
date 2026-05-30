@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>復興小區長青團契出訪行程</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            /* 滿版暖色系夕陽背景 */
+            background: linear-gradient(rgba(255, 248, 230, 0.3), rgba(255, 248, 230, 0.3)), 
+                        url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: "Microsoft JhengHei", sans-serif;
+        }
+        .poster-container {
+            width: 95%;
+            max-width: 450px;
+            background: rgba(255, 255, 255, 0.85);
+            padding: 25px 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(8px);
+            text-align: center;
+        }
+        .church-highlight { color: #C2410C; font-weight: 800; border-bottom: 2px solid #FDBA74; }
+        .restaurant-highlight { color: #065f46; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="poster-container shadow-2xl">
+    <!-- 標題區 -->
+    <h1 class="text-3xl font-bold text-[#C2410C]">復興小區長青團契</h1>
+    <p class="text-lg text-gray-600 italic mb-4">兩日溫馨出訪行程</p>
+
+    <!-- 視覺焦點：長者握手圖示 -->
+    <div class="flex justify-center mb-6">
+        
+    </div>
+
+    <!-- 行程區 -->
+    <div class="text-left space-y-4 text-gray-800">
+        <!-- 第一天 -->
+        <div>
+            <h2 class="text-lg font-bold text-gray-700 border-b border-gray-400 mb-2">第一天：5月31日（週日）—— 喜樂花蓮行</h2>
+            <ul class="text-sm space-y-1">
+                <li>07:00 出發 → 08:30 舌餅發明館</li>
+                <li>10:10 台泥廠 → 11:10 太管處</li>
+                <li class="church-highlight py-1">⛪ 富士教會：團契聯誼與午餐</li>
+                <li>13:30 七星潭 → 14:50 文創園區</li>
+                <li class="church-highlight py-1">⛪ 花蓮教會：團契聯誼與晚餐</li>
+                <li>18:40 花蓮假期飯店住宿</li>
+            </ul>
+        </div>
+
+        <!-- 第二天 -->
+        <div>
+            <h2 class="text-lg font-bold text-gray-700 border-b border-gray-400 mb-2">第二天：6月1日（週一）—— 恩典宜蘭路</h2>
+            <ul class="text-sm space-y-1">
+                <li>08:30 早餐 → 09:00 名產採購</li>
+                <li>10:30 大鯖魚工廠</li>
+                <li class="restaurant-highlight py-1">🍴 午餐：駿懷舊餐廳</li>
+                <li>13:30 龍潭湖踏青 → 15:00 潭酵天地</li>
+                <li class="restaurant-highlight py-1">🍴 晚餐：春蕊會館</li>
+                <li>18:30 平安返抵大溪</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 底部資訊 -->
+    <footer class="mt-6 pt-4 border-t border-gray-300 text-sm text-[#854d0e] font-bold">
+        「凡事都有定期，天下萬務都有定時。」<br>期待與大家共創美好的回憶！
+    </footer>
+</div>
+
+</body>
+</html>
