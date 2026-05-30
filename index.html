@@ -3,39 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>復興小區長青團契出訪查詢系統</title>
+    <title>復興小區長青團契名牌系統</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @media print { 
             .no-print { display: none; } 
-            .badge-container { page-break-inside: avoid; margin-bottom: 5px; }
-            body { padding: 0; }
+            /* A4 橫式約 29.7cm，寬 9cm * 3 = 27cm，留有邊距 */
+            .badge-container { 
+                page-break-inside: avoid; 
+                width: 9cm; 
+                height: 5.5cm; 
+                border: 1px solid #000; 
+                display: inline-block; 
+                margin: 0.2cm; 
+                vertical-align: top;
+            }
         }
-        .badge-container { width: 9cm; height: 5.5cm; border: 2px solid #333; margin: 6px; display: inline-block; vertical-align: top; border-radius: 8px; overflow: hidden; position: relative; }
-        .badge-front { width: 100%; height: 100%; padding: 8px; text-align: center; box-sizing: border-box; }
+        .badge-container { 
+            width: 9cm; 
+            height: 5.5cm; 
+            border: 2px solid #333; 
+            margin: 8px; 
+            display: inline-block; 
+            vertical-align: top; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            position: relative; 
+        }
+        .badge-front { width: 100%; height: 100%; padding: 10px; text-align: center; box-sizing: border-box; }
     </style>
 </head>
 <body class="bg-gray-100 p-5">
 
 <div class="max-w-6xl mx-auto bg-white p-6 rounded-lg shadow-lg">
-    <h1 class="text-2xl font-bold mb-4 no-print">復興小區長青團契出訪查詢系統 (完整 110 人名單)</h1>
-    <input type="text" id="searchInput" placeholder="搜尋姓名或教會..." class="w-full p-3 border rounded mb-4 no-print text-lg">
+    <h1 class="text-2xl font-bold mb-4 no-print">復興小區長青團契名牌產生器 (110人)</h1>
+    <input type="text" id="searchInput" placeholder="輸入姓名或教會搜尋..." class="w-full p-3 border rounded mb-4 no-print text-lg">
     
-    <div id="results" class="overflow-x-auto no-print">
-        <table class="w-full border-collapse border border-gray-300 text-sm">
-            <thead><tr class="bg-gray-200"><th>項次</th><th>所屬教會</th><th>姓名</th><th>車次</th><th>房號</th><th>房型</th></tr></thead>
-            <tbody id="resultBody"></tbody>
-        </table>
+    <div id="results" class="no-print">
+        <p class="mb-2 font-bold text-gray-700">查詢結果：</p>
+        <div class="overflow-x-auto">
+            <table class="w-full border-collapse border border-gray-300 text-sm">
+                <thead><tr class="bg-gray-200"><th>ID.</th><th>教會</th><th>姓名</th><th>車</th><th>房</th><th>房型</th></tr></thead>
+                <tbody id="resultBody"></tbody>
+            </table>
+        </div>
     </div>
 
     <hr class="my-8 no-print">
-    <button onclick="window.print()" class="no-print bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded text-lg font-bold">列印全部名牌</button>
+    <button onclick="window.print()" class="no-print bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded text-xl font-bold shadow-lg">列印名牌 (橫式 A4)</button>
     
     <div id="badges" class="mt-8"></div>
 </div>
 
 <script>
-// 已針對您提供的完整 110 筆資料進行清洗，確保所有欄位對齊
+// 使用正確對齊後的 110 筆完整名單
 const rawData = [
     {id: 1, church: "工作小組", name: "陳靜美", car: "1", room: "707", type: "(2人房)"},
     {id: 2, church: "工作小組", name: "王鴻志", car: "1", room: "707", type: "(2人房)"},
@@ -155,15 +176,15 @@ const badges = document.getElementById('badges');
 
 function render(filter = '') {
     const filtered = rawData.filter(r => r.name.includes(filter) || r.church.includes(filter));
-    resultBody.innerHTML = filtered.map(r => `<tr><td class="border p-1">${r.id}</td><td class="border p-1">${r.church}</td><td class="border p-1">${r.name}</td><td class="border p-1">第 ${r.car} 車</td><td class="border p-1">${r.room}</td><td class="border p-1">${r.type}</td></tr>`).join('');
+    resultBody.innerHTML = filtered.map(r => `<tr><td class="border p-2">${r.id}.</td><td class="border p-2">${r.church}</td><td class="border p-2 font-bold">${r.name}</td><td class="border p-2">${r.car}</td><td class="border p-2">${r.room}</td><td class="border p-2">${r.type}</td></tr>`).join('');
     badges.innerHTML = filtered.map(r => `
         <div class="badge-container">
-            <div class="badge-front">
-                <div class="text-[8px] font-bold text-gray-600">復興小區長青團契花蓮訪問二日遊</div>
-                <div class="text-xs font-bold mt-1">${r.church}</div>
-                <h2 class="text-xl font-bold">${r.name}</h2>
-                <div class="text-xs mt-1">房號：${r.room} ${r.type}</div>
-                <div class="text-xs font-semibold">車次：第 ${r.car} 車 | 項次：${r.id}</div>
+            <div class="badge-front flex flex-col justify-center">
+                <div class="text-[9px] text-gray-500 uppercase tracking-widest">復興小區長青團契</div>
+                <div class="text-xs font-bold my-1">${r.church}</div>
+                <h2 class="text-2xl font-black">${r.name}</h2>
+                <div class="text-xs font-bold mt-1">房號：${r.room} ${r.type}</div>
+                <div class="text-[10px] mt-2">ID: ${r.id} | 車次：第 ${r.car} 車</div>
             </div>
         </div>
     `).join('');
